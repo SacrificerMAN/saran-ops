@@ -188,12 +188,13 @@
           <input id="child_age" type="number" value="9" />
         </div>
       </div>
-      <label>Webhook secret (if set on Railway)</label>
-      <input id="secret" type="password" placeholder="WEBHOOK_SECRET" autocomplete="off" />
-      <label>Telegram chat id (optional)</label>
+      <label>Webhook secret (REQUIRED — same as Railway WEBHOOK_SECRET)</label>
+      <input id="secret" type="password" placeholder="Paste WEBHOOK_SECRET here" autocomplete="off" />
+      <label>Telegram chat id (optional — leave empty to use TELEGRAM_ADMIN_CHAT_ID)</label>
       <input id="telegram_chat_id" placeholder="e.g. 123456789" />
       <button type="button" id="btnLead">Send EVENT_NEW_LEAD</button>
-      <p class="hint">POST /webhook/lead · timezone + call window auto</p>
+      <button type="button" class="secondary" id="btnTg">Test Telegram message</button>
+      <p class="hint">Without correct secret → unauthorized, no Telegram. Bot must receive /start from you first.</p>
     </section>
 
     <section class="card">
@@ -207,16 +208,11 @@
       <h2>API endpoints</h2>
       <div class="endpoints">
         <code>POST /webhook/lead</code>
-        <code>POST /webhook/voice</code>
-        <code>POST /webhook/coach</code>
-        <code>POST /webhook/payment</code>
-        <code>POST /webhook/renewal</code>
-        <code>POST /webhook/ads</code>
+        <code>POST /admin/test-telegram</code>
         <code>GET  /health · /api · /admin/memory</code>
       </div>
       <p class="hint">
-        Messaging: set <b>TELEGRAM_BOT_TOKEN</b> + <b>TELEGRAM_ADMIN_CHAT_ID</b> on Railway.
-        WhatsApp optional later.
+        Set <b>TELEGRAM_BOT_TOKEN</b> + <b>TELEGRAM_ADMIN_CHAT_ID</b> + <b>WEBHOOK_SECRET</b> on Railway.
       </p>
     </section>
   </main>
@@ -241,6 +237,9 @@
         if (j.messaging) {
           $("msgBadge").textContent = "msg: " + j.messaging;
           $("msgBadge").className = j.messaging === "none" ? "badge off" : "badge";
+        }
+        if (j.telegram && !j.telegram.admin_chat_id_set) {
+          $("out").textContent = "WARNING: TELEGRAM_ADMIN_CHAT_ID is not set on Railway. Messages will not reach you until you add it.";
         }
       } catch (e) {
         $("statusBadge").textContent = "offline";
@@ -299,6 +298,23 @@
       $("out").textContent = "Loading…";
       try {
         const r = await fetch("/admin/memory", { headers: headers() });
+        const j = await r.json();
+        $("out").textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        $("out").textContent = String(e);
+      }
+    };
+
+    $("btnTg").onclick = async () => {
+      $("out").textContent = "Sending Telegram test…";
+      try {
+        const r = await fetch("/admin/test-telegram", {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({
+            chat_id: $("telegram_chat_id").value.trim() || undefined,
+          }),
+        });
         const j = await r.json();
         $("out").textContent = JSON.stringify(j, null, 2);
       } catch (e) {
