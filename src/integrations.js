@@ -78,6 +78,16 @@ function messagingStatus() {
   return "none";
 }
 
+function telegramConfig() {
+  return {
+    bot_token_set: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+    admin_chat_id_set: Boolean(process.env.TELEGRAM_ADMIN_CHAT_ID),
+    admin_chat_id_preview: process.env.TELEGRAM_ADMIN_CHAT_ID
+      ? String(process.env.TELEGRAM_ADMIN_CHAT_ID).slice(0, 3) + "…"
+      : null,
+  };
+}
+
 async function triggerVapiCall({ phone, did, leadId, studentName, parentName }) {
   const key = process.env.VAPI_API_KEY;
   const assistantId = process.env.VAPI_ASSISTANT_ID;
@@ -107,5 +117,6 @@ module.exports = {
   sendWhatsApp,
   sendMessage,
   messagingStatus,
+  telegramConfig,
   triggerVapiCall,
 };
