@@ -3,7 +3,13 @@ const path = require("path");
 const express = require("express");
 const { route } = require("./orchestrator");
 const db = require("./db");
-const { sendMessage, messagingStatus, triggerVapiCall } = require("./integrations");
+const {
+  sendMessage,
+  sendTelegram,
+  messagingStatus,
+  telegramConfig,
+  triggerVapiCall,
+} = require("./integrations");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -54,12 +60,43 @@ app.get("/health", (_req, res) => {
     ts: new Date().toISOString(),
     db: db.usePg() ? "postgres" : "memory",
     messaging: messagingStatus(),
+    telegram: telegramConfig(),
+    webhook_secret_required: Boolean(SECRET),
   });
 });
 
 app.get("/admin/memory", auth, (_req, res) => {
   if (db.usePg()) return res.json({ note: "Using Postgres — query tables directly" });
   res.json(db.memorySnapshot());
+});
+
+app.post("/admin/test-telegram", auth, async (req, res) => {
+  const cfg = telegramConfig();
+  if (!cfg.bot_token_set) {
+    return res.status(400).json({
+      ok: false,
+      error: "TELEGRAM_BOT_TOKEN not set on Railway",
+    });
+  }
+  const chatId = req.body.chat_id || process.env.TELEGRAM_ADMIN_CHAT_ID;
+  if (!chatId) {
+    return res.status(400).json({
+      ok: false,
+      error: "TELEGRAM_ADMIN_CHAT_ID not set. Add it in Railway Variables, or pass chat_id in body.",
+      hint: "Message your bot /start then open https://api.telegram.org/bot<TOKEN>/getUpdates and copy message.chat.id",
+    });
+  }
+  const result = await sendTelegram(
+    chatId,
+    req.body.text ||
+      "Saran Ops test message — Telegram is connected.\nTime: " + new Date().toISOString()
+  );
+  res.json({
+    ok: result.ok,
+    chat_id_used: String(chatId),
+    telegram_response: result.data || null,
+    stub: result.stub || false,
+  });
 });
 
 async function processEvent(eventType, body, res) {
