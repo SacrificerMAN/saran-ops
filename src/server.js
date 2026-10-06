@@ -1,11 +1,13 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const { route } = require("./orchestrator");
 const db = require("./db");
-const { sendWhatsApp, triggerVapiCall } = require("./integrations");
+const { sendMessage, messagingStatus, triggerVapiCall } = require("./integrations");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 const PORT = process.env.PORT || 8080;
 const SECRET = process.env.WEBHOOK_SECRET || "";
@@ -17,12 +19,13 @@ function auth(req, res, next) {
   next();
 }
 
-app.get("/", (_req, res) => {
+app.get("/api", (_req, res) => {
   res.json({
     service: "saran-ops",
     academy: "Saran Chess Academy",
     status: "ok",
     db: db.usePg() ? "postgres" : "memory",
+    messaging: messagingStatus(),
     agents: [
       "AGENT_1_AD_OPS",
       "AGENT_2_LEAD_QUAL",
@@ -40,12 +43,18 @@ app.get("/", (_req, res) => {
       "POST /orchestrate",
       "GET /health",
       "GET /admin/memory",
+      "GET /api",
     ],
   });
 });
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, ts: new Date().toISOString(), db: db.usePg() ? "postgres" : "memory" });
+  res.json({
+    ok: true,
+    ts: new Date().toISOString(),
+    db: db.usePg() ? "postgres" : "memory",
+    messaging: messagingStatus(),
+  });
 });
 
 app.get("/admin/memory", auth, (_req, res) => {
@@ -57,6 +66,10 @@ async function processEvent(eventType, body, res) {
   const decision = route(eventType, body || {});
   const internal = decision._internal || {};
   delete decision._internal;
+
+  if (process.env.TELEGRAM_BOT_TOKEN && decision.client_communication?.message_content) {
+    decision.client_communication.channel = "TELEGRAM";
+  }
 
   try {
     await db.audit(eventType, decision);
@@ -131,15 +144,13 @@ async function processEvent(eventType, body, res) {
         : ` | ADD_TO_COHORT ${cohort.id || cohort.name}`;
     }
 
-    if (
-      decision.client_communication?.channel === "WHATSAPP" &&
-      decision.client_communication.recipient_e164 &&
-      decision.client_communication.message_content
-    ) {
-      await sendWhatsApp(
-        decision.client_communication.recipient_e164,
-        decision.client_communication.message_content
-      );
+    if (decision.client_communication?.message_content) {
+      await sendMessage({
+        phone: decision.client_communication.recipient_e164 || internal.phone_e164,
+        telegramChatId: body.telegram_chat_id || internal.telegram_chat_id || null,
+        text: decision.client_communication.message_content,
+        alsoAdmin: true,
+      });
     }
   } catch (err) {
     console.error("processEvent error", err);
@@ -166,5 +177,7 @@ app.post("/webhook/renewal", auth, (req, res) =>
 app.post("/webhook/ads", auth, (req, res) => processEvent("EVENT_AD_OPS", req.body, res));
 
 app.listen(PORT, () => {
-  console.log(`saran-ops listening on :${PORT} db=${db.usePg() ? "postgres" : "memory"}`);
+  console.log(
+    `saran-ops listening on :${PORT} db=${db.usePg() ? "postgres" : "memory"} msg=${messagingStatus()}`
+  );
 });
