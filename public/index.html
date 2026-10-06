@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Saran Ops — Control Panel</title>
+  <style>
+    :root {
+      --bg: #0a0f0c;
+      --panel: #121a15;
+      --border: #1e2e24;
+      --green: #00c853;
+      --green-dim: #00a844;
+      --text: #e8f0ea;
+      --muted: #8a9a90;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem 1.5rem;
+      background: var(--panel);
+    }
+    header h1 { font-size: 1.15rem; }
+    header h1 span { color: var(--green); }
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: #0d2818;
+      color: var(--green);
+      border: 1px solid #1a4d30;
+    }
+    .badge.off { color: var(--muted); border-color: var(--border); background: #151a16; }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.25rem;
+      display: grid;
+      gap: 1.25rem;
+    }
+    @media (min-width: 800px) {
+      main { grid-template-columns: 1fr 1fr; }
+      .full { grid-column: 1 / -1; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.2rem;
+    }
+    .card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+    }
+    .agents { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .agent {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 6px;
+      background: #0d1a12;
+      border: 1px solid #1a3324;
+    }
+    label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: 0.55rem 0 0.25rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.9rem;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    button {
+      margin-top: 0.9rem;
+      width: 100%;
+      background: var(--green);
+      color: #041208;
+      border: none;
+      font-weight: 700;
+      padding: 0.7rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green-dim);
+    }
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.72rem;
+      overflow: auto;
+      max-height: 320px;
+      color: #b8e0c4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .stat {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 0.65rem;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .stat b { display: block; font-size: 1.1rem; color: var(--green); }
+    .stat span { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; }
+    .hint { font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; }
+    .endpoints code {
+      display: block;
+      font-size: 0.72rem;
+      color: #9fd4b0;
+      margin: 0.2rem 0;
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+    footer a { color: var(--green); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Saran <span>Ops</span></h1>
+    <span class="badge" id="statusBadge">checking…</span>
+    <span class="badge off" id="dbBadge">db: —</span>
+    <span class="badge off" id="msgBadge">msg: —</span>
+  </header>
+
+  <main>
+    <section class="card full">
+      <h2>System</h2>
+      <div class="stat-grid">
+        <div class="stat"><b id="sAgents">5</b><span>Agents</span></div>
+        <div class="stat"><b id="sDb">—</b><span>Database</span></div>
+        <div class="stat"><b id="sHealth">—</b><span>Health</span></div>
+      </div>
+      <div class="agents" id="agentList" style="margin-top:0.85rem"></div>
+    </section>
+
+    <section class="card">
+      <h2>Test new lead</h2>
+      <div class="row">
+        <div>
+          <label>Parent name</label>
+          <input id="parent_name" value="Alex Parent" />
+        </div>
+        <div>
+          <label>Student name</label>
+          <input id="student_name" value="Sam" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Phone (E.164)</label>
+          <input id="phone" value="+12025550123" />
+        </div>
+        <div>
+          <label>Child age</label>
+          <input id="child_age" type="number" value="9" />
+        </div>
+      </div>
+      <label>Webhook secret (if set on Railway)</label>
+      <input id="secret" type="password" placeholder="WEBHOOK_SECRET" autocomplete="off" />
+      <label>Telegram chat id (optional)</label>
+      <input id="telegram_chat_id" placeholder="e.g. 123456789" />
+      <button type="button" id="btnLead">Send EVENT_NEW_LEAD</button>
+      <p class="hint">POST /webhook/lead · timezone + call window auto</p>
+    </section>
+
+    <section class="card">
+      <h2>Last response</h2>
+      <pre id="out">Submit a test lead to see orchestrator JSON…</pre>
+      <button type="button" class="secondary" id="btnHealth">Refresh health</button>
+      <button type="button" class="secondary" id="btnMemory">Load memory / audit</button>
+    </section>
+
+    <section class="card full">
+      <h2>API endpoints</h2>
+      <div class="endpoints">
+        <code>POST /webhook/lead</code>
+        <code>POST /webhook/voice</code>
+        <code>POST /webhook/coach</code>
+        <code>POST /webhook/payment</code>
+        <code>POST /webhook/renewal</code>
+        <code>POST /webhook/ads</code>
+        <code>GET  /health · /api · /admin/memory</code>
+      </div>
+      <p class="hint">
+        Messaging: set <b>TELEGRAM_BOT_TOKEN</b> + <b>TELEGRAM_ADMIN_CHAT_ID</b> on Railway.
+        WhatsApp optional later.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    Saran Chess Academy ·
+    <a href="https://saranchessacademy.com" target="_blank" rel="noopener">saranchessacademy.com</a>
+  </footer>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    async function loadHealth() {
+      try {
+        const r = await fetch("/health");
+        const j = await r.json();
+        $("statusBadge").textContent = j.ok ? "online" : "down";
+        $("statusBadge").className = "badge";
+        $("dbBadge").textContent = "db: " + (j.db || "—");
+        $("sHealth").textContent = j.ok ? "OK" : "ERR";
+        $("sDb").textContent = j.db || "—";
+        if (j.messaging) {
+          $("msgBadge").textContent = "msg: " + j.messaging;
+          $("msgBadge").className = j.messaging === "none" ? "badge off" : "badge";
+        }
+      } catch (e) {
+        $("statusBadge").textContent = "offline";
+        $("statusBadge").className = "badge off";
+        $("sHealth").textContent = "ERR";
+      }
+    }
+
+    async function loadRoot() {
+      try {
+        const r = await fetch("/api");
+        const j = await r.json();
+        $("sAgents").textContent = (j.agents || []).length || 5;
+        $("agentList").innerHTML = (j.agents || [])
+          .map((a) => `<span class="agent">${a}</span>`)
+          .join("");
+        if (j.messaging) {
+          $("msgBadge").textContent = "msg: " + j.messaging;
+          $("msgBadge").className = j.messaging === "none" ? "badge off" : "badge";
+        }
+      } catch (_) {}
+    }
+
+    function headers() {
+      const h = { "Content-Type": "application/json" };
+      const s = $("secret").value.trim();
+      if (s) h["x-webhook-secret"] = s;
+      return h;
+    }
+
+    $("btnLead").onclick = async () => {
+      $("out").textContent = "Sending…";
+      const body = {
+        parent_name: $("parent_name").value,
+        student_name: $("student_name").value,
+        phone: $("phone").value,
+        child_age: Number($("child_age").value) || null,
+      };
+      const tg = $("telegram_chat_id").value.trim();
+      if (tg) body.telegram_chat_id = tg;
+      try {
+        const r = await fetch("/webhook/lead", {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        $("out").textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        $("out").textContent = String(e);
+      }
+    };
+
+    $("btnHealth").onclick = loadHealth;
+    $("btnMemory").onclick = async () => {
+      $("out").textContent = "Loading…";
+      try {
+        const r = await fetch("/admin/memory", { headers: headers() });
+        const j = await r.json();
+        $("out").textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        $("out").textContent = String(e);
+      }
+    };
+
+    loadHealth();
+    loadRoot();
+  </script>
+</body>
+</html>
