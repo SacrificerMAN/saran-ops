@@ -108,6 +108,52 @@ async function processEvent(eventType, body, res) {
     decision.client_communication.channel = "TELEGRAM";
   }
 
+  // Always notify Telegram FIRST (even if DB fails later)
+  try {
+    let text = decision.client_communication?.message_content || null;
+
+    if (eventType.includes("NEW_LEAD") || eventType === "EVENT_NEW_LEAD") {
+      text = [
+        "NEW LEAD — Saran Chess Academy",
+        `ID: ${decision.lead_metadata?.lead_id || "—"}`,
+        `Parent: ${decision.lead_metadata?.parent_name || "—"}`,
+        `Student: ${decision.lead_metadata?.student_name || "—"}`,
+        `Phone: ${internal.phone_e164 || "—"}`,
+        `Age: ${internal.child_age ?? "—"}`,
+        `Geo: ${decision.lead_metadata?.country_code || "—"} · ${decision.lead_metadata?.inferred_timezone || "—"}`,
+        `Score: ${internal.lead_score ?? "—"} · ${decision.database_mutation?.status || ""}`,
+        `Action: ${decision.operational_action?.action_code || "—"}`,
+        decision.operational_action?.execute_immediately
+          ? "Call: NOW"
+          : `Call: scheduled ${decision.operational_action?.scheduled_time_utc || "—"}`,
+      ].join("\n");
+      decision.client_communication = decision.client_communication || {};
+      decision.client_communication.channel = "TELEGRAM";
+      decision.client_communication.message_content = text;
+    }
+
+    if (text) {
+      const msgResult = await sendMessage({
+        phone: decision.client_communication?.recipient_e164 || internal.phone_e164,
+        telegramChatId: body.telegram_chat_id || internal.telegram_chat_id || null,
+        text,
+        alsoAdmin: true,
+      });
+      decision._messaging = {
+        ok: msgResult?.ok || false,
+        stub: msgResult?.stub || false,
+        results: (msgResult?.results || []).map((r) => ({
+          ok: r.ok,
+          channel: r.channel,
+          error: r.data?.description || null,
+        })),
+      };
+    }
+  } catch (msgErr) {
+    console.error("messaging error", msgErr);
+    decision._messaging = { ok: false, error: String(msgErr.message || msgErr) };
+  }
+
   try {
     await db.audit(eventType, decision);
 
@@ -179,15 +225,6 @@ async function processEvent(eventType, body, res) {
       decision.database_mutation.crm_audit_log += created
         ? ` | CREATE_NEW_COHORT ${cohort.id || cohort.name}`
         : ` | ADD_TO_COHORT ${cohort.id || cohort.name}`;
-    }
-
-    if (decision.client_communication?.message_content) {
-      await sendMessage({
-        phone: decision.client_communication.recipient_e164 || internal.phone_e164,
-        telegramChatId: body.telegram_chat_id || internal.telegram_chat_id || null,
-        text: decision.client_communication.message_content,
-        alsoAdmin: true,
-      });
     }
   } catch (err) {
     console.error("processEvent error", err);
